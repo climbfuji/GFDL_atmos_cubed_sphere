@@ -112,7 +112,7 @@ module atmosphere_mod
 !   <tr>
 !     <td>mpp_mod</td>
 !     <td>mpp_error, stdout, FATAL, NOTE, input_nml_file, mpp_root_pe,
-!                    mpp_npes, mpp_pe, mpp_chksum,mpp_get_current_pelist,     
+!                    mpp_npes, mpp_pe, mpp_chksum,mpp_get_current_pelist,
 !                    mpp_set_current_pelist</td>
 !   </tr>
 !   <tr>
@@ -509,7 +509,7 @@ contains
 !  --- initiate the start for a restarted regional forecast
    if ( Atm(mytile)%gridstruct%regional .and. Atm(mytile)%flagstruct%warm_start ) then
 
-     call start_regional_restart(Atm(1),             &
+     call start_regional_restart(Atm(1), dt_atmos,   &
                                  isc, iec, jsc, jec, &
                                  isd, ied, jsd, jed )
    endif
@@ -1269,7 +1269,7 @@ contains
    rrg  = rdgas / grav
 
    if (first_time) then
-     print *, 'calculating slp kr value'
+     if (mpp_pe() == mpp_root_pe()) print *, 'calculating slp kr value'
      ! determine 0.8 sigma reference level
      sigtop = Atm(mytile)%ak(1)/pstd_mks+Atm(mytile)%bk(1)
      do k = 1, npz
@@ -1630,6 +1630,7 @@ contains
 
      call nullify_domain()
      call timing_on('FV_DIAG')
+
      call fv_diag(Atm(mytile:mytile), zvir, fv_time, Atm(mytile)%flagstruct%print_freq)
      first_diag = .false.
      call timing_off('FV_DIAG')
