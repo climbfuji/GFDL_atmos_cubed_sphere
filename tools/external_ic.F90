@@ -499,14 +499,12 @@ contains
       integer :: levp = 64
       logical :: checker_tr = .false.
       integer :: nt_checker = 0
-      logical :: butterfly_effect = .false.
-      integer :: i_butterfly, j_butterfly
       real(kind=R_GRID), dimension(2):: p1, p2, p3
       real(kind=R_GRID), dimension(3):: e1, e2, ex, ey
       integer:: i,j,k,nts, ks
       integer:: liq_wat, ice_wat, rainwat, snowwat, graupel, ntclamt
       namelist /external_ic_nml/ filtered_terrain, levp, gfs_dwinds, &
-                                 checker_tr, nt_checker, butterfly_effect
+                                 checker_tr, nt_checker
 #ifdef GFSL64
    real, dimension(65):: ak_sj, bk_sj
    data ak_sj/20.00000,      68.00000,     137.79000,   &
@@ -860,21 +858,6 @@ contains
           call start_regional_cold_start(Atm(1), dt_atmos, ak, bk, levp, &
                                          is, ie, js, je, &
                                          isd, ied, jsd, jed )
-        endif
-
-!
-!***  Butterfly effect
-!
-        if (butterfly_effect) then
-          if (n==1 .and. Atm(n)%tile == 1) then
-            i_butterfly = Atm(1)%npx / 2
-            j_butterfly = Atm(1)%npy / 2
-            if (is <= i_butterfly .and. i_butterfly <= ie) then
-            if (js <= j_butterfly .and. j_butterfly <= je) then
-               ps(i_butterfly,j_butterfly) = nearest(ps(i_butterfly,j_butterfly), -1.0)
-            endif
-            endif
-          endif
         endif
 
 !
