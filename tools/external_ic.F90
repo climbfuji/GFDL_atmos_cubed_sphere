@@ -550,8 +550,9 @@ contains
       jsd = Atm%bd%jsd
       jed = Atm%bd%jed
       npz = Atm%npz
-      write(*,22001)is,ie,js,je,isd,ied,jsd,jed
-22001 format(' enter get_nggps_ic is=',i4,' ie=',i4,' js=',i4,' je=',i4,' isd=',i4,' ied=',i4,' jsd=',i4,' jed=',i4)
+      if(is_master()) write(*,*) ' enter get_nggps_ic'
+!      write(*,22001)is,ie,js,je,isd,ied,jsd,jed
+!22001 format(' enter get_nggps_ic is=',i4,' ie=',i4,' js=',i4,' je=',i4,' isd=',i4,' ied=',i4,' jsd=',i4,' jed=',i4)
       call get_number_tracers(MODEL_ATMOS, num_tracers=ntracers, num_prog=ntprog)
       ntdiag = ntracers-ntprog
 
