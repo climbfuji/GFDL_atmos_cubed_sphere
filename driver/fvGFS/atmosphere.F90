@@ -107,7 +107,7 @@ module atmosphere_mod
 !   </tr>
 !   <tr>
 !     <td>IPD_typedefs_mod</td>
-!     <td>IPD_data_type, kind_phys</td>
+!     <td>IPD_data_type, kind_phys => IPD_kind_phys</td>
 !   </tr>
 !   <tr>
 !     <td>mpp_mod</td>
@@ -1441,7 +1441,7 @@ contains
 
    call set_domain ( Atm(mygrid)%domain )
 
-   call timing_on('IPD_TENDENCIES')
+   call timing_on('GFS_TENDENCIES')
    call atmos_phys_qdt_diag(Atm(n)%q, Atm(n)%phys_diag, nt_dyn, dt_atmos, .true.)
 !--- put u/v tendencies into haloed arrays u_dt and v_dt
 !$OMP parallel do default (none) & 
@@ -1554,7 +1554,7 @@ contains
       !endif
    endif
 
-   call timing_off('IPD_TENDENCIES')
+   call timing_off('GFS_TENDENCIES')
 
    w_diff = get_tracer_index (MODEL_ATMOS, 'w_diff' )
    nt_dyn = ncnst-pnats   !nothing more than nq
