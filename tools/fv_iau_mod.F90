@@ -53,8 +53,15 @@ module fv_iau_mod
                                  get_var1_double,     &
                                  get_var3_r4,         &
                                  get_var1_real, check_var_exists
-  use GFS_typedefs,        only: GFS_init_type, GFS_control_type, &
+#ifdef GFS_TYPES
+  use GFS_typedefs,        only: IPD_init_type => GFS_init_type, &
+                                 IPD_control_type => GFS_control_type, &
                                  kind_phys
+#else
+  use IPD_typedefs,        only: IPD_init_type, IPD_control_type, &
+                                 kind_phys => IPD_kind_phys
+#endif
+
   use block_control_mod,   only: block_control_type
   use fv_treat_da_inc_mod, only: remap_coef
   use tracer_manager_mod,  only: get_tracer_names,get_tracer_index, get_number_tracers
@@ -107,10 +114,10 @@ module fv_iau_mod
   public iau_external_data_type,IAU_initialize,getiauforcing
 
 contains
-subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
-    type (GFS_control_type), intent(in) :: GFS_Control
+subroutine IAU_initialize (IPD_Control, IAU_Data,Init_parm)
+    type (IPD_control_type), intent(in) :: IPD_Control
     type (IAU_external_data_type), intent(inout) :: IAU_Data
-    type (GFS_init_type),    intent(in) :: Init_parm
+    type (IPD_init_type),    intent(in) :: Init_parm
     ! local
 
     character(len=128) :: fname
@@ -126,10 +133,10 @@ subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
     integer nfilesall
     integer, allocatable :: idt(:)
 
-    is  = GFS_Control%isc
-    ie  = is + GFS_Control%nx-1
-    js  = GFS_Control%jsc
-    je  = js + GFS_Control%ny-1
+    is  = IPD_Control%isc
+    ie  = is + IPD_Control%nx-1
+    js  = IPD_Control%jsc
+    je  = js + IPD_Control%ny-1
     call get_number_tracers(MODEL_ATMOS, num_tracers=ntracers)
     allocate (tracer_names(ntracers))
     allocate (tracer_indicies(ntracers))
@@ -144,13 +151,13 @@ subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
     allocate(agrid(is:ie,js:je,2))
 ! determine number of increment files to read, and the valid forecast hours
 
-   nfilesall = size(GFS_Control%iau_inc_files)
+   nfilesall = size(IPD_Control%iau_inc_files)
    nfiles = 0
-   if (is_master()) print*,'in iau_init',trim(GFS_Control%iau_inc_files(1)),GFS_Control%iaufhrs(1)
+   if (is_master()) print*,'in iau_init',trim(IPD_Control%iau_inc_files(1)),IPD_Control%iaufhrs(1)
    do k=1,nfilesall
-      if (trim(GFS_Control%iau_inc_files(k)) .eq. '' .or. GFS_Control%iaufhrs(k) .lt. 0) exit
+      if (trim(IPD_Control%iau_inc_files(k)) .eq. '' .or. IPD_Control%iaufhrs(k) .lt. 0) exit
       if (is_master()) then
-         print *,k,trim(adjustl(GFS_Control%iau_inc_files(k)))
+         print *,k,trim(adjustl(IPD_Control%iau_inc_files(k)))
       endif
       nfiles = nfiles + 1
    enddo
@@ -160,24 +167,24 @@ subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
    endif
    if (nfiles > 1) then
       allocate(idt(nfiles-1))
-      idt = GFS_Control%iaufhrs(2:nfiles)-GFS_Control%iaufhrs(1:nfiles-1)
+      idt = IPD_Control%iaufhrs(2:nfiles)-IPD_Control%iaufhrs(1:nfiles-1)
       do k=1,nfiles-1
-         if (idt(k) .ne. GFS_Control%iaufhrs(2)-GFS_Control%iaufhrs(1)) then
+         if (idt(k) .ne. IPD_Control%iaufhrs(2)-IPD_Control%iaufhrs(1)) then
            print *,'forecast intervals in iaufhrs must be constant'
            call mpp_error (FATAL,' forecast intervals in iaufhrs must be constant')
          endif
       enddo
       deallocate(idt)
    endif
-   if (is_master()) print *,'iau interval = ',GFS_Control%iau_delthrs,' hours'
-   dt = (GFS_Control%iau_delthrs*3600.)
+   if (is_master()) print *,'iau interval = ',IPD_Control%iau_delthrs,' hours'
+   dt = (IPD_Control%iau_delthrs*3600.)
    rdt = 1.0/dt
 
 !  set up interpolation weights to go from GSI's gaussian grid to cubed sphere
     deg2rad = pi/180.
 
-    npz = GFS_Control%levs
-    fname = 'INPUT/'//trim(GFS_Control%iau_inc_files(1))
+    npz = IPD_Control%levs
+    fname = 'INPUT/'//trim(IPD_Control%iau_inc_files(1))
 
     if( file_exist(fname) ) then
       call open_ncfile( fname, ncid )        ! open the file
@@ -244,12 +251,12 @@ subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
     allocate (iau_state%inc1%delp_inc (is:ie, js:je, km))
     allocate (iau_state%inc1%delz_inc (is:ie, js:je, km))
     allocate (iau_state%inc1%tracer_inc(is:ie, js:je, km,ntracers))
-    iau_state%hr1=GFS_Control%iaufhrs(1)
+    iau_state%hr1=IPD_Control%iaufhrs(1)
     iau_state%wt = 1.0 ! IAU increment filter weights (default 1.0)
-    if (GFS_Control%iau_filter_increments) then
+    if (IPD_Control%iau_filter_increments) then
        ! compute increment filter weights, sum to obtain normalization factor
-       dtp=GFS_control%dtp
-       nstep = 0.5*GFS_Control%iau_delthrs*3600/dtp 
+       dtp=IPD_control%dtp
+       nstep = 0.5*IPD_Control%iau_delthrs*3600/dtp 
        ! compute normalization factor for filter weights
        normfact = 0.
        do k=1,2*nstep+1
@@ -266,9 +273,9 @@ subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
        enddo
        iau_state%wt_normfact = (2*nstep+1)/normfact
     endif
-    call read_iau_forcing(GFS_Control,iau_state%inc1,'INPUT/'//trim(GFS_Control%iau_inc_files(1)))
+    call read_iau_forcing(IPD_Control,iau_state%inc1,'INPUT/'//trim(IPD_Control%iau_inc_files(1)))
     if (nfiles.EQ.1) then  ! only need to get incrments once since constant forcing over window
-       call setiauforcing(GFS_Control,IAU_Data,iau_state%wt)
+       call setiauforcing(IPD_Control,IAU_Data,iau_state%wt)
     endif
     if (nfiles.GT.1) then  !have multiple files, but only read in 2 at a time and interpoalte between them
        allocate (iau_state%inc2%ua_inc(is:ie, js:je, km))
@@ -277,18 +284,18 @@ subroutine IAU_initialize (GFS_Control, IAU_Data,Init_parm)
        allocate (iau_state%inc2%delp_inc (is:ie, js:je, km))
        allocate (iau_state%inc2%delz_inc (is:ie, js:je, km))
        allocate (iau_state%inc2%tracer_inc(is:ie, js:je, km,ntracers))
-       iau_state%hr2=GFS_Control%iaufhrs(2)
-       call read_iau_forcing(GFS_Control,iau_state%inc2,'INPUT/'//trim(GFS_Control%iau_inc_files(2)))
+       iau_state%hr2=IPD_Control%iaufhrs(2)
+       call read_iau_forcing(IPD_Control,iau_state%inc2,'INPUT/'//trim(IPD_Control%iau_inc_files(2)))
     endif
 !   print*,'in IAU init',dt,rdt
-    IAU_data%drymassfixer = GFS_control%iau_drymassfixer
+    IAU_data%drymassfixer = IPD_control%iau_drymassfixer
 
 end subroutine IAU_initialize
 
-subroutine getiauforcing(GFS_Control,IAU_Data)
+subroutine getiauforcing(IPD_Control,IAU_Data)
         
    implicit none 
-   type (GFS_control_type), intent(in) :: GFS_Control
+   type (IPD_control_type), intent(in) :: IPD_Control
    type(IAU_external_data_type),  intent(inout) :: IAU_Data
    real(kind=kind_phys) t1,t2,sx,wx,wt,dtp
    integer n,i,j,k,sphum,kstep,nstep
@@ -298,18 +305,18 @@ subroutine getiauforcing(GFS_Control,IAU_Data)
        return
    endif
 
-   t1=iau_state%hr1 - GFS_Control%iau_delthrs*0.5
-   t2=iau_state%hr1 + GFS_Control%iau_delthrs*0.5
-   if (GFS_Control%iau_filter_increments) then
+   t1=iau_state%hr1 - IPD_Control%iau_delthrs*0.5
+   t2=iau_state%hr1 + IPD_Control%iau_delthrs*0.5
+   if (IPD_Control%iau_filter_increments) then
       ! compute increment filter weight
       ! t1 beginning of window, t2 end of window
-      ! GFS_Control%fhour current time
+      ! IPD_Control%fhour current time
       ! in window kstep=-nstep,nstep (2*nstep+1 total)
-      ! time step GFS_control%dtp
-      dtp=GFS_control%dtp
-      nstep = 0.5*GFS_Control%iau_delthrs*3600/dtp 
+      ! time step IPD_control%dtp
+      dtp=IPD_control%dtp
+      nstep = 0.5*IPD_Control%iau_delthrs*3600/dtp 
       ! compute normalized filter weight
-      kstep = (GFS_Control%fhour-(t1+GFS_Control%iau_delthrs*0.5))*3600./dtp
+      kstep = (IPD_Control%fhour-(t1+IPD_Control%iau_delthrs*0.5))*3600./dtp
       if (kstep .ge. -nstep .and. kstep .le. nstep) then
          sx     = acos(-1.)*kstep/nstep
          wx     = acos(-1.)*kstep/(nstep+1)
@@ -319,7 +326,7 @@ subroutine getiauforcing(GFS_Control,IAU_Data)
             wt = 1.
          endif
          iau_state%wt = iau_state%wt_normfact*wt
-         if (is_master()) print *,'filter wt',kstep,GFS_Control%fhour,iau_state%wt
+         if (is_master()) print *,'filter wt',kstep,IPD_Control%fhour,iau_state%wt
       else
          iau_state%wt = 0.
       endif
@@ -328,12 +335,12 @@ subroutine getiauforcing(GFS_Control,IAU_Data)
    if (nfiles.EQ.1) then
 !  on check to see if we are in the IAU window,  no need to update the
 !  tendencies since they are fixed over the window
-      if ( GFS_Control%fhour < t1 .or. GFS_Control%fhour >= t2 ) then
-!         if (is_master()) print *,'no iau forcing',t1,GFS_Control%fhour,t2
+      if ( IPD_Control%fhour < t1 .or. IPD_Control%fhour >= t2 ) then
+!         if (is_master()) print *,'no iau forcing',t1,IPD_Control%fhour,t2
          IAU_Data%in_interval=.false.
       else 
-         if (GFS_Control%iau_filter_increments) call setiauforcing(GFS_Control,IAU_Data,iau_state%wt)
-         if (is_master()) print *,'apply iau forcing',t1,GFS_Control%fhour,t2
+         if (IPD_Control%iau_filter_increments) call setiauforcing(IPD_Control,IAU_Data,iau_state%wt)
+         if (is_master()) print *,'apply iau forcing',t1,IPD_Control%fhour,t2
          IAU_Data%in_interval=.true.
       endif
       return
@@ -341,40 +348,40 @@ subroutine getiauforcing(GFS_Control,IAU_Data)
 
    if (nfiles > 1) then
       t2=2
-      if (GFS_Control%fhour < GFS_Control%iaufhrs(1) .or. GFS_Control%fhour >= GFS_Control%iaufhrs(nfiles)) then
-!         if (is_master()) print *,'no iau forcing',GFS_Control%iaufhrs(1),GFS_Control%fhour,GFS_Control%iaufhrs(nfiles)
+      if (IPD_Control%fhour < IPD_Control%iaufhrs(1) .or. IPD_Control%fhour >= IPD_Control%iaufhrs(nfiles)) then
+!         if (is_master()) print *,'no iau forcing',IPD_Control%iaufhrs(1),IPD_Control%fhour,IPD_Control%iaufhrs(nfiles)
          IAU_Data%in_interval=.false.
       else 
          IAU_Data%in_interval=.true.
          do k=nfiles,1,-1
-            if (GFS_Control%iaufhrs(k) > GFS_Control%fhour) then
+            if (IPD_Control%iaufhrs(k) > IPD_Control%fhour) then
                t2=k
             endif
          enddo
 !         if (is_master()) print *,'t2=',t2
-         if (GFS_Control%fhour >= iau_state%hr2) then ! need to read in next increment file
+         if (IPD_Control%fhour >= iau_state%hr2) then ! need to read in next increment file
             iau_state%hr1=iau_state%hr2
-            iau_state%hr2=GFS_Control%iaufhrs(t2)
+            iau_state%hr2=IPD_Control%iaufhrs(t2)
             iau_state%inc1=iau_state%inc2
-            if (is_master()) print *,'reading next increment file',trim(GFS_Control%iau_inc_files(t2))
-            call read_iau_forcing(GFS_Control,iau_state%inc2,'INPUT/'//trim(GFS_Control%iau_inc_files(t2)))
+            if (is_master()) print *,'reading next increment file',trim(IPD_Control%iau_inc_files(t2))
+            call read_iau_forcing(IPD_Control,iau_state%inc2,'INPUT/'//trim(IPD_Control%iau_inc_files(t2)))
          endif
-         call updateiauforcing(GFS_Control,IAU_Data,iau_state%wt)
+         call updateiauforcing(IPD_Control,IAU_Data,iau_state%wt)
       endif
    endif
    sphum=get_tracer_index(MODEL_ATMOS,'sphum')
  end subroutine getiauforcing
 
-subroutine updateiauforcing(GFS_Control,IAU_Data,wt)
+subroutine updateiauforcing(IPD_Control,IAU_Data,wt)
       
    implicit none 
-   type (GFS_control_type),        intent(in) :: GFS_Control
+   type (IPD_control_type),        intent(in) :: IPD_Control
    type(IAU_external_data_type),  intent(inout) :: IAU_Data
    real(kind_phys) delt,wt
    integer i,j,k,l
   
-!   if (is_master()) print *,'in updateiauforcing',nfiles,GFS_Control%iaufhrs(1:nfiles)
-   delt = (iau_state%hr2-(GFS_Control%fhour))/(IAU_state%hr2-IAU_state%hr1)
+!   if (is_master()) print *,'in updateiauforcing',nfiles,IPD_Control%iaufhrs(1:nfiles)
+   delt = (iau_state%hr2-(IPD_Control%fhour))/(IAU_state%hr2-IAU_state%hr1)
    do j = js,je
       do i = is,ie
          do k = 1,npz
@@ -392,10 +399,10 @@ subroutine updateiauforcing(GFS_Control,IAU_Data,wt)
  end subroutine updateiauforcing
 
 
- subroutine setiauforcing(GFS_Control,IAU_Data,wt)
+ subroutine setiauforcing(IPD_Control,IAU_Data,wt)
       
  implicit none 
- type (GFS_control_type),        intent(in) :: GFS_Control
+ type (IPD_control_type),        intent(in) :: IPD_Control
  type(IAU_external_data_type),  intent(inout) :: IAU_Data
  real(kind_phys) delt, dt,wt
  integer i,j,k,l,sphum
@@ -418,8 +425,8 @@ subroutine updateiauforcing(GFS_Control,IAU_Data,wt)
  sphum=get_tracer_index(MODEL_ATMOS,'sphum')
  end subroutine setiauforcing
 
-subroutine read_iau_forcing(GFS_Control,increments,fname)
-    type (GFS_control_type), intent(in) :: GFS_Control
+subroutine read_iau_forcing(IPD_Control,increments,fname)
+    type (IPD_control_type), intent(in) :: IPD_Control
     type(iau_internal_data_type), intent(inout):: increments  
     character(len=*),  intent(in) :: fname
 !locals
@@ -434,14 +441,14 @@ subroutine read_iau_forcing(GFS_Control,increments,fname)
     logical:: found
     integer :: is,  ie,  js,  je
 
-    is  = GFS_Control%isc
-    ie  = is + GFS_Control%nx-1
-    js  = GFS_Control%jsc
-    je  = js + GFS_Control%ny-1
+    is  = IPD_Control%isc
+    ie  = is + IPD_Control%nx-1
+    js  = IPD_Control%jsc
+    je  = js + IPD_Control%ny-1
 
     deg2rad = pi/180.
 
-    npz = GFS_Control%levs
+    npz = IPD_Control%levs
 
     if( file_exist(fname) ) then
       call open_ncfile( fname, ncid )        ! open the file
