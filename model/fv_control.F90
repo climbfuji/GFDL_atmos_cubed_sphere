@@ -1071,7 +1071,9 @@ module fv_control_mod
 #endif
        call write_version_number ( 'FV_CONTROL_MOD', version )
        unit = stdlog()
+#ifndef __PGI
        write(unit, nml=fv_core_nml)
+#endif
 
        if (len_trim(res_latlon_dynamics) /= 0) Atm%flagstruct%res_latlon_dynamics = res_latlon_dynamics
        if (len_trim(res_latlon_tracers)  /= 0) Atm%flagstruct%res_latlon_tracers = res_latlon_tracers
