@@ -37,8 +37,8 @@ set( FV3_LINKER_LANGUAGE Fortran )
 # Dependencies
 ####################################################################################################
 
-#openMP
-ecbuild_enable_omp()
+# OpenMP
+ecbuild_find_omp(COMPONENTS Fortran QUIET)
 
 # jedi-cmake
 find_package( jedicmake QUIET )
